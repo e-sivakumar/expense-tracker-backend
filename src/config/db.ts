@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 
 const mongoDbURI = process.env.MONGODB_URI || "";
-console.log("mondbURI:", mongoDbURI);
 
 export async function connectToDatabase() {
     try{

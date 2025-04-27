@@ -60,7 +60,7 @@ tags:
     description: User management endpoints
 
 paths:
-  /auth/create:
+  /auth/signup:
     post:
       tags: [Auth]
       summary: Create a new user
