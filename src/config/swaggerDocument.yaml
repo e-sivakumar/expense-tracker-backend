@@ -358,3 +358,178 @@ paths:
                     example: "failed"
         '500':
           $ref: '#/components/responses/InternalServerError'
+
+  /transaction/create:
+    post:
+      tags: [Transaction]
+      summary: Create a new transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, type, category, date]
+              properties:
+                amount:
+                  type: number
+                  example: 10000
+                type:
+                  type: string
+                  example: "income"
+                category:
+                  type: string
+                  example: "salary"
+                date:
+                  type: string
+                  example: "01/12/2024"
+                  format: "DD/MM/YYYY"
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Transaction added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  displayMessage:
+                    type: string
+                    example: "Transaction added successfully"
+                  statusCode:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                      
+        '400':
+          $ref: '#/components/responses/InvalidArguments'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /transaction/update/{id}:
+    put:
+      tags: [Transaction]
+      summary: Update a new transaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the user
+          required: true
+          type: string 
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, type, category, date]
+              properties:
+                amount:
+                  type: number
+                  example: 1000
+                type:
+                  type: string
+                  example: "expense"
+                category:
+                  type: string
+                  example: "Travel"
+                date:
+                  type: string
+                  example: "10/12/2024"
+                description:
+                  type: string
+                  example: "Kodaikanal"
+      responses:
+        '200':
+          description: Transaction updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  displayMessage:
+                    type: string
+                    example: "Transaction updated successfully"
+                  statusCode:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                      
+        '400':
+          $ref: '#/components/responses/InvalidArguments'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /transaction/overview:
+    get:
+      tags: [Transaction]
+      summary: Get Transaction overview for a month
+      security:
+        - bearerAuth: []
+      params:
+        - name: month
+          in: query
+          type: string
+        - name: year
+          in: query
+          type: string
+      responses:
+        '200':
+          description: Transaction data fetched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  displayMessage:
+                    type: string
+                    example: "Profile retrieved successfully"
+                  statusCode:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      income:
+                        type: string
+                      expense:
+                        type: string
+                      balance:
+                        type: string
+        '401':
+          description: Unauthorized - invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  displayMessage:
+                    type: string
+                    example: "Invalid token"
+                  statusCode:
+                    type: integer
+                    example: 401
+                  status:
+                    type: string
+                    example: "failed"
+        '400':
+          $ref: '#/components/responses/InvalidArguments'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+

@@ -20,6 +20,12 @@ export async function createTransaction(req: Request, res: Response) {
       res.status(400).send(invalidArgumentsResponse());
       return;
     }
+    const [day, month, year] = date.split('/');
+    if(!month || !day || !year){
+      res.status(400).send(invalidArgumentsResponse());
+      return
+    }
+    const newDate = new Date(Date.UTC(year, month-1, day));
     const transactionId = generateUUID();
     const transactionData = new Transaction({
       _id: transactionId,
@@ -27,13 +33,13 @@ export async function createTransaction(req: Request, res: Response) {
       amount,
       type,
       category,
-      date,
+      date: newDate.toISOString(),
       ...(description && { description }),
     });
     await transactionData.save();
     res
       .status(200)
-      .send({ message: "Transaction addedd successfully", status: 200 });
+      .send(generateResponse("Transaction added successfully", 200, "success"));
   } catch (err) {
     console.log("err", err);
     res.status(500).send(internalServerErrorResponse());
@@ -47,7 +53,7 @@ export async function updateTransaction(req: Request, res: Response) {
       return;
     }
     const { id } = (req as Request & { user: { id: string } }).user;
-    const { transactionId } = req.params;
+    const { id: transactionId } = req.params;
     const { amount, type, category, date, description } = req.body;
     if (!transactionId || !amount || !type || !category || !date) {
       res.status(400).send(invalidArgumentsResponse());
@@ -84,7 +90,65 @@ export async function updateTransaction(req: Request, res: Response) {
   }
 }
 
-export async function getTransactions(req: Request, res: Response){
+export async function getTransactionDataForMonth(req: Request, res: Response){
+  try{
+    if(!req.query){
+      res.status(400).send(invalidArgumentsResponse())
+      return
+    }
+    const { id } = (req as Request & { user: { id: string } }).user;
+    const {month, year} = req.query;
+    if(!month || !year){
+      res.status(400).send(invalidArgumentsResponse())
+      return
+    }
+    const { startDate, endDate } = findStartAndEndDateForMonth(parseInt(month as string), parseInt(year as string));
+    const data = await Transaction.aggregate([
+      {
+        $match: {
+          userId: id,
+          date: {$gte: startDate , $lte: endDate},
+          isDeleted: false
+        }
+      },
+      {
+        $group:{
+          _id: "$type",
+          total: {$sum : "$amount"}
+        }
+      },
+      {
+        $project :{
+        type: "$_id", 
+        _id:0,
+        total: 1,
+        amount: "$amount",
+        category: 1
+      }
+    }
+    ]);
+    let income = 0, expense = 0;
+    data.map((obj)=>{
+      if(obj.type === "expense"){
+        expense = obj.total
+      }
+      else if(obj.type === "income"){
+        income = obj.total
+      }
+    });
+    res.status(200).send(generateResponse("Transaction data fetched", 200, "success", {
+      income,
+      expense,
+      balance: income - expense
+    }))
+  }
+  catch(err){
+    console.log("err", err);
+    res.status(500).send(internalServerErrorResponse())
+  }
+}
+
+export async function getTransactionsData(req: Request, res: Response){
   try{
     const { id } = (req as Request & { user: { id: string } }).user;
     if(!req.query){

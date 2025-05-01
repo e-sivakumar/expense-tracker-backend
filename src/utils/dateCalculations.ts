@@ -1,11 +1,15 @@
 export function findStartAndEndDateForMonth(month: number, year: number) {
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0); // Last day of the month
-  return { startDate, endDate };
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // Last moment of month
+  return { startDate: startDate, endDate: endDate };
 }
 
 export function findStartAndEndDateForYear(year:number){
-  const startDate = new Date(year, 0, 1); // January 1st of the year
-  const endDate = new Date(year + 1, 0, 0); // December 31st of the year
-  return { startDate, endDate };
+  const startDate = new Date(Date.UTC(year, 0, 1));           // Jan 1 UTC
+  // const endDate = new Date(Date.UTC(year, 11, 31));           // Dec 31 UTC
+  const endDate = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+
+  return {
+    startDate, endDate
+  };
 }
