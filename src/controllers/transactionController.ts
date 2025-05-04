@@ -20,6 +20,10 @@ export async function createTransaction(req: Request, res: Response) {
       res.status(400).send(invalidArgumentsResponse());
       return;
     }
+    if(!(type == "income" || type == "expense")){
+      res.status(400).send(generateResponse("Type should either Income or expense", 400, "failed"))
+      return
+    }
     const [day, month, year] = date.split('/');
     if(!month || !day || !year){
       res.status(400).send(invalidArgumentsResponse());
@@ -58,6 +62,10 @@ export async function updateTransaction(req: Request, res: Response) {
     if (!transactionId || !amount || !type || !category || !date) {
       res.status(400).send(invalidArgumentsResponse());
       return;
+    }
+    if(!(type == "income" || type == "expense")){
+      res.status(400).send(generateResponse("Type should either Income or expense", 400, "failed"))
+      return
     }
     const transactionData = await Transaction.findOne({
       _id: transactionId,
@@ -148,7 +156,7 @@ export async function getTransactionDataForMonth(req: Request, res: Response){
   }
 }
 
-export async function getTransactionsData(req: Request, res: Response){
+export async function getTransactionsList(req: Request, res: Response){
   try{
     const { id } = (req as Request & { user: { id: string } }).user;
     if(!req.query){
@@ -168,14 +176,11 @@ export async function getTransactionsData(req: Request, res: Response){
       res.status(400).send(generateResponse("Start date or end date is missing", 400, "failed"))
       return
     }
-    else if(!year){
+    else if(!(month || (startDate && endDate)) && !year){
       res.status(400).send(generateResponse("Year is required", 400, "failed"))
       return
     }
-    
-    // const pageNumber = parseInt(page as string) || 1;
-    // const limitNumber = parseInt(limit as string) || 10;
-    // const skip = (pageNumber - 1) * limitNumber;
+
     const filter: any = {
       userId: id,
       isDeleted: false,
@@ -186,11 +191,30 @@ export async function getTransactionsData(req: Request, res: Response){
     if(!(category === "all")){
       filter.category = category
     }
+
+    const groupBy: any = {};
+
+    let checkFilter = 0;
+
     if(startDate && endDate){
-      filter.date = {
-        $gte: new Date(startDate as string),
-        $lte: new Date(endDate as string),
+      const [day1, month1, year1] = String(startDate).split('/');
+      if(!month1 || !day1 || !year1){
+        res.status(400).send(invalidArgumentsResponse());
+        return
       }
+      const updatedStartDate = new Date(Date.UTC(parseInt(year1), parseInt(month1)-1, parseInt(day1)));
+      const [day2, month2, year2] = String(endDate).split('/');
+      if(!month2 || !day2 || !year2){
+        res.status(400).send(invalidArgumentsResponse());
+        return
+      }
+      const updatedEndDate = new Date(Date.UTC(parseInt(year2), parseInt(month2)-1, parseInt(day2)));
+      filter.date = {
+        $gte: updatedStartDate,
+        $lte: updatedEndDate,
+      }
+      groupBy._id = {date:"$date", type: "$type"}
+      checkFilter++;
     }
     if(month && year){
       const { startDate, endDate } = findStartAndEndDateForMonth(parseInt(month as string), parseInt(year as string));
@@ -198,6 +222,8 @@ export async function getTransactionsData(req: Request, res: Response){
         $gte: startDate,
         $lte: endDate,
       }
+      groupBy._id = {date:"$date", type: "$type"}
+      checkFilter++;
     }
     if(year && !month){
       const { startDate, endDate } = findStartAndEndDateForYear(parseInt(year as string));
@@ -205,11 +231,49 @@ export async function getTransactionsData(req: Request, res: Response){
         $gte: startDate,
         $lte: endDate,
       }
+      groupBy._id = {month:{$month:"$date"}, type: "$type"}
+      checkFilter++;
     }
-    
-    const transactionsData = await Transaction.find(filter).sort({date: -1})
-    // .skip(skip).limit(limitNumber);
-    res.status(200).send(generateResponse("Transactions fetched successfully", 200, "success", transactionsData));
+    if(checkFilter != 1){
+      res.status(400).send(generateResponse("Should not select more than one filter", 400, "failed"))
+      return
+    }
+    groupBy.total = {$sum : "$amount"};
+    const transactionsData = await Transaction.aggregate([
+      {
+        $match: filter
+      },
+      {
+        $group: groupBy
+      },
+      {
+        $sort:{
+          date: 1,
+          month: 1
+        }
+      }
+    ])
+    const data = new Map();
+    let globalTotal = 0;
+    transactionsData.map((transaction)=>{
+      const groupedKey = String(transaction._id?.month || new Date(transaction._id?.date).toISOString());
+      if(data.has(groupedKey)){
+        const temp = data.get(groupedKey);
+        let total = temp.total;
+        total = transaction._id.type == "expense" ? (total - transaction.total) : (total + transaction.total);
+        globalTotal = transaction._id.type == "expense" ? (globalTotal - transaction.total) : (globalTotal + transaction.total);
+        temp.transactions = [...(temp.transactions), {type: transaction._id.type, amount: transaction.total } ]
+        data.set(groupedKey, {...temp, total})
+      }
+      else{
+        let total = 0;
+        total = transaction._id.type == "expense" ? (total - transaction.total) : (total + transaction.total);
+        globalTotal = transaction._id.type == "expense" ? (globalTotal - transaction.total) : (globalTotal + transaction.total);
+        data.set(groupedKey, {transactions: [{type: transaction._id.type, amount: transaction.total}], total})
+      }
+    })
+    const updatedData = Object.fromEntries(data.entries());
+    res.status(200).send(generateResponse("Transactions fetched successfully", 200, "success", {transactionData: updatedData, totalAmount: globalTotal}));
   }
   catch(err){
     console.log("err", err);
