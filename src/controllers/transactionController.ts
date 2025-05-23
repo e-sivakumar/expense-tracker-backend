@@ -280,3 +280,71 @@ export async function getTransactionsList(req: Request, res: Response){
     res.status(500).send(internalServerErrorResponse());
   }
 }
+
+export async function getTransactionDetail(req: Request, res: Response){
+  try{
+    if(!req.query){
+      res.status(400).send(invalidArgumentsResponse())
+      return
+    }
+    const {date} = req.query;
+    if(!date){
+      res.status(400).send(invalidArgumentsResponse())
+      return
+    }
+    const { id } = (req as Request & { user: { id: string } }).user;
+
+    const data = await Transaction.find({
+      userId: id,
+      date,
+      isDeleted: false
+    })
+    .select('-userId -isDeleted -createdAt -updatedAt')
+    .lean()
+    .exec();
+
+    if(!data || data.length == 0){
+      res.status(400).send(generateResponse("Transaction not found", 400, "failed"))
+      return
+    }
+    res.status(200).send(generateResponse("Transaction data fetched", 200, "success", data));
+  }
+  catch(err){
+    console.log("err",err)
+    res.status(500).send(internalServerErrorResponse())
+  }
+}
+
+export async function deleteTransaction(req: Request, res: Response){
+  try{
+    const { id } = (req as Request & { user: { id: string } }).user;
+    const { id: transactionId } = req.params;
+    if(!transactionId){
+      res.status(400).send(invalidArgumentsResponse())
+      return
+    }
+    const transactionData = await Transaction.findOne({
+      _id: transactionId,
+      userId: id,
+      isDeleted: false
+    });
+    if(!transactionData){
+      res.status(400).send(generateResponse("Transaction not found", 400, "failed"))
+      return
+    }
+    await Transaction.updateOne(
+      {_id: transactionId},
+      {
+        $set:{
+          isDeleted: true,
+          updatedAt: new Date()
+        }
+      }
+    )
+    res.status(200).send(generateResponse("Transaction deleted successfully", 200, "success"))
+  }
+  catch(err){
+    console.log("err", err);
+    res.status(500).send(internalServerErrorResponse())
+  }
+}
