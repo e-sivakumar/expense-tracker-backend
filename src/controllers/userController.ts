@@ -10,9 +10,11 @@ export async function UserProfile(req: Request, res: Response) {
   try {
     const { id } = (req as Request & { user: { id: string } }).user;
     const userData = await User.findOne(
-      { _id: id, isDeleted: false },
-      { _id: 0, firstName: 1, lastName: 1, email: 1 }
-    );
+      { _id: id, isDeleted: false }
+    )
+    .select('firstName lastName email -_id') 
+      .lean()
+      .exec();
     if (!userData) {
       res.status(400).send(generateResponse("User not found", 400, "failed"));
       return;
