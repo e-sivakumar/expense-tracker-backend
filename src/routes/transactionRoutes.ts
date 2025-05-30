@@ -5,7 +5,7 @@ import { createTransaction, deleteTransaction, getTransactionDataForMonth, getTr
 export const transactionRoutes = express.Router();
 
 transactionRoutes.post("/create", validateUser, createTransaction);
-transactionRoutes.put("/update", validateUser, updateTransaction);
+transactionRoutes.put("/update/:id", validateUser, updateTransaction);
 transactionRoutes.get("/overview", validateUser, getTransactionDataForMonth)
 transactionRoutes.get("/list", validateUser, getTransactionsList)
 transactionRoutes.get("/detail", validateUser, getTransactionDetail)
